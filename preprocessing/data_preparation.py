@@ -1,8 +1,4 @@
-"""Linear Regression, 1/21/17, Sajad Azami"""
-
 import pandas as pd
-
-__author__ = 'sajjadaazami@gmail.com (Sajad Azami)'
 
 
 # Reads train data from csv, returns pandas DF
