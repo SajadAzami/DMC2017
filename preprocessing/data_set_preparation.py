@@ -13,11 +13,13 @@ from sklearn.model_selection import cross_val_score, KFold
 def merge_data(input_path, items_path, output_path):
     tdf = read_data(input_path)
     idf = read_data(items_path)
+    print('data read successfully!')
     output = Path(output_path)
     if not output.is_file():
-        mrg = pd.merge(tdf, idf)
-        pd.to_pickle(mrg, output_path)
-        return mrg
+        train_merged = tdf.copy()
+        train_merged = train_merged.merge(tdf.merge(idf, how='left', on='pid', sort=False))
+        pd.to_pickle(train_merged, output_path)
+        return train_merged
     else:
         return pd.read_pickle(output_path)
 
