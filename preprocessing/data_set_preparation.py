@@ -1,9 +1,7 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-
 from sklearn.metrics import mean_squared_error, make_scorer
-
 from preprocessing.data_preparation import read_data
 from xgboost import XGBRegressor
 from sklearn.model_selection import cross_val_score, KFold
@@ -38,18 +36,22 @@ def extract_numbers_from_content(input):
         return 1, input[0: x_index], second_part
     return input[0: x_index], second_part[0: x_second_index], second_part[x_second_index + 1: len(second_part)]
 
+
 unit_map = {
-        'KG': 1000,
-        'ST': 6350,
-        'P': 454,
-        'M': 100,
-        'L': 1000,
-        'G': 1,
-        'CM': 1,
-        'ML': 1,
-    }
+    'KG': 1000,
+    'ST': 6350,
+    'P': 454,
+    'M': 100,
+    'L': 1000,
+    'G': 1,
+    'CM': 1,
+    'ML': 1,
+}
+
+
 def unit_converter(row):
     return row['content_3'] * unit_map[row['unit']]
+
 
 def prepare_dataset():
     output = Path('../data/unit_fixed.pkl')
@@ -109,4 +111,13 @@ def predict_competitor(all_data):
                              scoring=make_scorer(mean_squared_error))
     print(scores)
 
-prepare_dataset()
+
+data = prepare_dataset()
+
+from scipy.stats import pearsonr
+
+print(data['category'].fillna(0))
+print(pearsonr(data['category'].fillna(0), data['count']))
+
+# TODO handle features: category, group, competitor
+# TODO Random Forrest on server
