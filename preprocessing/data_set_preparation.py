@@ -38,32 +38,53 @@ def extract_numbers_from_content(input):
         return 1, input[0: x_index], second_part
     return input[0: x_index], second_part[0: x_second_index], second_part[x_second_index + 1: len(second_part)]
 
+unit_map = {
+        'KG': 1000,
+        'ST': 6350,
+        'P': 454,
+        'M': 100,
+        'L': 1000,
+        'G': 1,
+        'CM': 1,
+        'ML': 1,
+    }
+def unit_converter(row):
+    return row['content_3'] * unit_map[row['unit']]
 
 def prepare_dataset():
-    # example of using merge_data function for train dataset
-    mrg = merge_data('../data/train.csv', '../data/items.csv', '../data/train_merged.pkl')
-    print('completed')
+    output = Path('../data/unit_fixed.pkl')
+    if not output.is_file():
+        # example of using merge_data function for train dataset
+        mrg = merge_data('../data/train.csv', '../data/items.csv', '../data/train_merged.pkl')
 
-    # add count feature (revenue/price)
-    mrg['count'] = mrg.revenue / mrg.price
+        # add count feature (revenue/price)
+        mrg['count'] = mrg.revenue / mrg.price
 
-    # uppercase all pharmForm values
-    mrg['pharmForm'] = mrg['pharmForm'].str.upper()
-    # extract pharmForm values as binary feature and adding them to dataset
-    mrg = pd.concat([mrg, pd.get_dummies(mrg['pharmForm'])], axis=1)
-    mrg = mrg.drop('pharmForm', 1)
+        # uppercase all pharmForm values
+        mrg['pharmForm'] = mrg['pharmForm'].str.upper()
+        # extract pharmForm values as binary feature and adding them to dataset
+        mrg = pd.concat([mrg, pd.get_dummies(mrg['pharmForm'])], axis=1)
+        mrg = mrg.drop('pharmForm', 1)
 
-    # split count of packs and amount of each to separate columns
-    extracted_numbers = mrg['content'].apply(extract_numbers_from_content)
-    extracted_numbers = pd.DataFrame(extracted_numbers.tolist(), columns=['content_1', 'content_2', 'content_3'],
-                                     index=extracted_numbers.index)
-    extracted_numbers['content_1'] = pd.to_numeric(extracted_numbers['content_1'])
-    extracted_numbers['content_2'] = pd.to_numeric(extracted_numbers['content_2'])
-    extracted_numbers['content_3'] = pd.to_numeric(extracted_numbers['content_3'])
-    mrg = pd.concat([mrg, extracted_numbers], axis=1)
-    mrg = mrg.drop('content', 1)
+        # split count of packs and amount of each to separate columns
+        extracted_numbers = mrg['content'].apply(extract_numbers_from_content)
+        extracted_numbers = pd.DataFrame(extracted_numbers.tolist(), columns=['content_1', 'content_2', 'content_3'],
+                                         index=extracted_numbers.index)
+        extracted_numbers['content_1'] = pd.to_numeric(extracted_numbers['content_1'])
+        extracted_numbers['content_2'] = pd.to_numeric(extracted_numbers['content_2'])
+        extracted_numbers['content_3'] = pd.to_numeric(extracted_numbers['content_3'])
+        mrg = pd.concat([mrg, extracted_numbers], axis=1)
+        mrg = mrg.drop('content', 1)
 
-    # fill campaignIndex with 4 and then replace other characters with numbers
+        mrg['content_3'] = mrg.apply(unit_converter, axis=1)
+        mapping = {'KG': 'G', 'ST': 'G', 'P': 'G', 'L': 'ML', 'M': 'CM'}
+        mrg = mrg.replace({'unit': mapping})
+        pd.to_pickle(mrg, '../data/unit_fixed.pkl')
+        print('units converted')
+    else:
+        mrg = pd.read_pickle('../data/unit_fixed.pkl')
+
+    # fill campaignIndex with D and then get dummy binary values of each category index
     mrg['campaignIndex'].fillna('D', inplace=True)
     mrg = pd.concat([mrg, pd.get_dummies(mrg['campaignIndex'])], axis=1)
     mrg = mrg.drop('campaignIndex', 1)
@@ -72,9 +93,6 @@ def prepare_dataset():
 
     # mrg = pd.concat([mrg, pd.get_dummies(mrg['group'])], axis=1)
     mrg = mrg.drop('group', 1)
-
-    mrg = pd.concat([mrg, pd.get_dummies(mrg['unit'])], axis=1)
-    mrg = mrg.drop('unit', 1)
     return mrg
 
 
@@ -90,3 +108,5 @@ def predict_competitor(all_data):
                              cv=kf,
                              scoring=make_scorer(mean_squared_error))
     print(scores)
+
+prepare_dataset()
