@@ -103,7 +103,7 @@ def predict_competitor(all_data):
     kf = KFold(n_splits=10)
     estimator = XGBRegressor()
     x = train.drop('competitorPrice', 1)
-    y = train['competitorPrice']
+    y = train['competitorPri1ce']
     scores = cross_val_score(estimator,
                              x,
                              y,
@@ -114,10 +114,11 @@ def predict_competitor(all_data):
 
 data = prepare_dataset()
 
-from scipy.stats import pearsonr
+# from scipy.stats import pearsonr
+#
+# print(data['category'].fillna(0))
+# print(pearsonr(data['category'].fillna(0), data['count']))
 
-print(data['category'].fillna(0))
-print(pearsonr(data['category'].fillna(0), data['count']))
 
 # TODO handle features: category, group, competitor
 # TODO Random Forrest on server
