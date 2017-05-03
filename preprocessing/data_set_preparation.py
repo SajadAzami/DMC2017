@@ -10,9 +10,12 @@ from sklearn.model_selection import cross_val_score, KFold
 
 
 # merge items and train data to a dataFrame
-def merge_data(input_path, items_path, output_path):
+def merge_data(input_path, items_path=None, output_path=None, items_df=None):
     tdf = read_data(input_path)
-    idf = read_data(items_path)
+    if isinstance(items_df, pd.DataFrame):
+        idf = items_df
+    else:
+        idf = read_data(items_path)
     print('data read successfully!')
     output = Path(output_path)
     if not output.is_file():
@@ -69,46 +72,65 @@ def fill_competitor_missings(data):
     data.ix[data['lineID'].isin(competitor_missing_ids), 'competitorPrice'] = y_pred
     return data
 
+def prepare_items():
+    items = pd.read_csv('../data/items.csv')
+
+    # uppercase all pharmForm values
+    items['pharmForm'] = items['pharmForm'].str.upper()
+
+    # split count of packs and amount of each to separate columns
+    extracted_numbers = items['content'].apply(extract_numbers_from_content)
+    extracted_numbers = pd.DataFrame(extracted_numbers.tolist(), columns=['content_1', 'content_2', 'content_3'],
+                                     index=extracted_numbers.index)
+    extracted_numbers['content_1'] = pd.to_numeric(extracted_numbers['content_1'])
+    extracted_numbers['content_2'] = pd.to_numeric(extracted_numbers['content_2'])
+    extracted_numbers['content_3'] = pd.to_numeric(extracted_numbers['content_3'])
+    items = pd.concat([items, extracted_numbers], axis=1)
+    items = items.drop('content', 1)
+
+    items['content_3'] = items.apply(unit_converter, axis=1)
+    mapping = {'KG': 'G', 'ST': 'G', 'P': 'G', 'L': 'ML', 'M': 'CM'}
+    items = items.replace({'unit': mapping})
+    items = pd.concat([items, pd.get_dummies(items['unit'])], axis=1)
+    items = items.drop('unit', 1)
+    x_train = items[pd.notnull(items['category'])]
+    y_train = x_train['category']
+    pids = set(items['pid']) - set(x_train['pid'])
+    x_train = x_train[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    from sklearn.neighbors import KNeighborsClassifier
+    classifier = KNeighborsClassifier(n_neighbors=8, weights='distance', n_jobs=3)
+    classifier.fit(x_train, y_train)
+    x_test = items[items['pid'].isin(pids)]
+    x_test = x_test[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    y_pred = classifier.predict(x_test)
+    items.ix[items['pid'].isin(pids), 'category'] = y_pred
+
+    # extract pharmForm values as binary feature and adding them to dataset
+    items = pd.concat([items, pd.get_dummies(items['pharmForm'])], axis=1)
+    items = items.drop('pharmForm', 1)
+    return items
+
 def prepare_dataset():
-    output = Path('../data/unit_fixed.pkl')
+    output = Path('../data/train_v2.pkl')
     if not output.is_file():
-        # example of using merge_data function for train dataset
-        mrg = merge_data('../data/train.csv', '../data/items.csv', '../data/train_merged.pkl')
+        output = Path('../data/unit_fixed_v2.pkl')
+        if not output.is_file():
+            items = prepare_items()
+            mrg = merge_data(input_path='../data/train.csv', items_df=items, output_path='../data/train_merged_v2.pkl')
+            # add count feature (revenue/price)
+            mrg['count'] = mrg.revenue / mrg.price
 
-        # add count feature (revenue/price)
-        mrg['count'] = mrg.revenue / mrg.price
+            pd.to_pickle(mrg, '../data/unit_fixed_v2.pkl')
+            print('units converted')
+        else:
+            mrg = pd.read_pickle('../data/unit_fixed_v2.pkl')
 
-        # uppercase all pharmForm values
-        mrg['pharmForm'] = mrg['pharmForm'].str.upper()
-        # extract pharmForm values as binary feature and adding them to dataset
-        mrg = pd.concat([mrg, pd.get_dummies(mrg['pharmForm'])], axis=1)
-        mrg = mrg.drop('pharmForm', 1)
+        mrg['weekDay'] = mrg['day'] % 7
 
-        # split count of packs and amount of each to separate columns
-        extracted_numbers = mrg['content'].apply(extract_numbers_from_content)
-        extracted_numbers = pd.DataFrame(extracted_numbers.tolist(), columns=['content_1', 'content_2', 'content_3'],
-                                         index=extracted_numbers.index)
-        extracted_numbers['content_1'] = pd.to_numeric(extracted_numbers['content_1'])
-        extracted_numbers['content_2'] = pd.to_numeric(extracted_numbers['content_2'])
-        extracted_numbers['content_3'] = pd.to_numeric(extracted_numbers['content_3'])
-        mrg = pd.concat([mrg, extracted_numbers], axis=1)
-        mrg = mrg.drop('content', 1)
-
-        mrg['content_3'] = mrg.apply(unit_converter, axis=1)
-        mapping = {'KG': 'G', 'ST': 'G', 'P': 'G', 'L': 'ML', 'M': 'CM'}
-        mrg = mrg.replace({'unit': mapping})
-        pd.to_pickle(mrg, '../data/unit_fixed.pkl')
-        print('units converted')
+        mrg = fill_competitor_missings(mrg)
+        pd.to_pickle(mrg, '../data/train_v2.pkl')
     else:
-        mrg = pd.read_pickle('../data/unit_fixed.pkl')
-
-    mrg['weekDay'] = mrg['day'] % 7
-
-    mrg = pd.concat([mrg, pd.get_dummies(mrg['unit'])], axis=1)
-    mrg = mrg.drop('unit', 1)
-
-    mrg = fill_competitor_missings(mrg)
-    pd.to_pickle(mrg, '../data/filled_competitor.pkl')
+        mrg = pd.read_pickle('../data/train_v2.pkl')
     return mrg
 
 ''' unused function for model selection '''
@@ -125,5 +147,50 @@ def predict_competitor(all_data):
                              scoring=make_scorer(mean_squared_error))
     print(scores)
 
-
 prepare_dataset()
+
+'''unused function finds best number of neighbors for knn of category feature'''
+def find_best_number_of_neighbors_knn():
+    items = pd.read_csv('../data/items.csv')
+    items['pharmForm'] = items['pharmForm'].str.upper()
+    items = pd.concat([items, pd.get_dummies(items['pharmForm'])], axis=1)
+    items = items.drop('pharmForm', 1)
+
+    extracted_numbers = items['content'].apply(extract_numbers_from_content)
+    extracted_numbers = pd.DataFrame(extracted_numbers.tolist(), columns=['content_1', 'content_2', 'content_3'],
+                                     index=extracted_numbers.index)
+    extracted_numbers['content_1'] = pd.to_numeric(extracted_numbers['content_1'])
+    extracted_numbers['content_2'] = pd.to_numeric(extracted_numbers['content_2'])
+    extracted_numbers['content_3'] = pd.to_numeric(extracted_numbers['content_3'])
+    items = pd.concat([items, extracted_numbers], axis=1)
+    items = items.drop('content', 1)
+
+    items['content_3'] = items.apply(unit_converter, axis=1)
+    mapping = {'KG': 'G', 'ST': 'G', 'P': 'G', 'L': 'ML', 'M': 'CM'}
+    items = items.replace({'unit': mapping})
+    items = pd.concat([items, pd.get_dummies(items['unit'])], axis=1)
+    items = items.drop('unit', 1)
+    items = items[["manufacturer", "group", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp", 'category']]
+    items = items[pd.notnull(items['category'])]
+    x = items[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    y = items['category']
+
+    from sklearn.model_selection import train_test_split
+    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size = 0.25, random_state = 0)
+
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.model_selection import GridSearchCV
+
+    param_grid = {"n_neighbors": np.linspace(start=3, stop=99, dtype=np.int32),
+        "weights": ['uniform', 'distance']}
+
+    model = KNeighborsClassifier()
+
+    from sklearn.metrics import accuracy_score, make_scorer
+    accuracy_scorer = make_scorer(accuracy_score)
+
+    grid = GridSearchCV(estimator=model, param_grid=param_grid, scoring=accuracy_scorer, n_jobs=-1, verbose=1)
+    grid.fit(X_train, y_train)
+
+    print(grid.best_score_)
+    print(grid.best_params_)
