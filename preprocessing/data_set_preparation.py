@@ -86,18 +86,19 @@ def prepare_dataset():
     else:
         mrg = pd.read_pickle('../data/unit_fixed.pkl')
 
-    # To be filled with D
+    # fills missing values for campaignIndex
     campaign_missing = data[pd.isnull(data['campaignIndex'])]['lineID']
     adFlag_missing = data[data['adFlag'] == 0]['lineID']
     intersections = pd.Series(list(set(campaign_missing).intersection(set(adFlag_missing))))
+
+    # These are lineIDs with missing campaignIndex and adFlag=0
     ind = data.lineID.isin(intersections.tolist())
+
+    # To be filled with D
     data['campaignIndex'].fillna(data[ind]['campaignIndex'].fillna('D'), inplace=True)
-    # mrg['campaignIndex'].fillna('D', inplace=True)
 
     mrg = pd.concat([mrg, pd.get_dummies(mrg['campaignIndex'])], axis=1)
     mrg = mrg.drop('campaignIndex', 1)
-
-    mrg = mrg.drop('category', 1)
 
     # mrg = pd.concat([mrg, pd.get_dummies(mrg['group'])], axis=1)
     mrg = mrg.drop('group', 1)
@@ -126,5 +127,5 @@ data = prepare_dataset()
 # print(pearsonr(data['category'].fillna(0), data['count']))
 
 
-# TODO handle features: category, group, competitor
+# TODO handle features: category(linear model), group(feature extraction), competitor(linear model)
 # TODO Random Forrest on server
