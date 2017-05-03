@@ -5,6 +5,7 @@ from sklearn.metrics import mean_squared_error, make_scorer
 from preprocessing.data_preparation import read_data
 from xgboost import XGBRegressor
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.naive_bayes import GaussianNB
 
 
 # merge items and train data to a dataFrame
@@ -96,6 +97,20 @@ def prepare_dataset():
 
     # To be filled with D
     data['campaignIndex'].fillna(data[ind]['campaignIndex'].fillna('D'), inplace=True)
+
+    # Filling the rest using naive bayes
+    train_data = data[pd.notnull(data['campaignIndex'])]
+    test_data = data[pd.isnull(data['campaignIndex'])]
+
+    naive_bayes_clf = GaussianNB()
+    naive_bayes_clf.fit(train_data[['pid', 'manufacturer', 'rrp']],
+                        train_data['campaignIndex'])
+    predictions = naive_bayes_clf.predict(
+        test_data[['pid', 'manufacturer', 'rrp']])
+
+    data.ix[data['lineID'].isin(test_data['lineID']),
+            'campaignIndex'] = predictions
+    # campaignIndex filled completely
 
     mrg = pd.concat([mrg, pd.get_dummies(mrg['campaignIndex'])], axis=1)
     mrg = mrg.drop('campaignIndex', 1)
