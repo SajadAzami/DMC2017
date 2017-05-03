@@ -18,3 +18,8 @@ def read_data_label(path, label_name):
 def show_missing(data):
     missing = data.columns[data.isnull().any()].tolist()
     return data[missing].isnull().sum()
+
+
+# Get missing value counts of a dataframe
+def get_missing_count(df):
+    return df.isnull().values.ravel().sum()

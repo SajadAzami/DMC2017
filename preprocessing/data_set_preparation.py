@@ -1,12 +1,11 @@
 import pandas as pd
 import numpy as np
 from pathlib import Path
-
 from sklearn.metrics import mean_squared_error, make_scorer
-
 from preprocessing.data_preparation import read_data
 import xgboost as xgb
 from sklearn.model_selection import cross_val_score, KFold
+from sklearn.naive_bayes import GaussianNB
 
 
 # merge items and train data to a dataFrame
@@ -116,22 +115,52 @@ def prepare_dataset():
         output = Path('../data/unit_fixed_v2.pkl')
         if not output.is_file():
             items = prepare_items()
-            mrg = merge_data(input_path='../data/train.csv', items_df=items, output_path='../data/train_merged_v2.pkl')
+            data = merge_data(input_path='../data/train.csv', items_df=items, output_path='../data/train_merged_v2.pkl')
             # add count feature (revenue/price)
-            mrg['count'] = mrg.revenue / mrg.price
+            data['count'] = data.revenue / data.price
 
-            pd.to_pickle(mrg, '../data/unit_fixed_v2.pkl')
+            pd.to_pickle(data, '../data/unit_fixed_v2.pkl')
             print('units converted')
         else:
-            mrg = pd.read_pickle('../data/unit_fixed_v2.pkl')
+            data = pd.read_pickle('../data/unit_fixed_v2.pkl')
 
-        mrg['weekDay'] = mrg['day'] % 7
+        data['weekDay'] = data['day'] % 7
 
-        mrg = fill_competitor_missings(mrg)
-        pd.to_pickle(mrg, '../data/train_v2.pkl')
+        data = fill_competitor_missings(data)
+        # fills missing values for campaignIndex
+        campaign_missing = data[pd.isnull(data['campaignIndex'])]['lineID']
+        adFlag_missing = data[data['adFlag'] == 0]['lineID']
+        intersections = pd.Series(list(set(campaign_missing).intersection(set(adFlag_missing))))
+
+        # These are lineIDs with missing campaignIndex and adFlag=0
+        ind = data.lineID.isin(intersections.tolist())
+
+        # To be filled with D
+        data['campaignIndex'].fillna(data[ind]['campaignIndex'].fillna('D'), inplace=True)
+
+        # Filling the rest using naive bayes
+        train_data = data[pd.notnull(data['campaignIndex'])]
+        test_data = data[pd.isnull(data['campaignIndex'])]
+
+        naive_bayes_clf = GaussianNB()
+        naive_bayes_clf.fit(train_data[['pid', 'manufacturer', 'rrp']],
+                            train_data['campaignIndex'])
+        predictions = naive_bayes_clf.predict(
+            test_data[['pid', 'manufacturer', 'rrp']])
+
+        data.ix[data['lineID'].isin(test_data['lineID']),
+                'campaignIndex'] = predictions
+        # campaignIndex filled completely
+
+        data = pd.concat([data, pd.get_dummies(data['campaignIndex'])], axis=1)
+        data = data.drop('campaignIndex', 1)
+
+        # data = pd.concat([data, pd.get_dummies(data['group'])], axis=1)
+        data = data.drop('group', 1)
+        pd.to_pickle(data, '../data/train_v2.pkl')
     else:
-        mrg = pd.read_pickle('../data/train_v2.pkl')
-    return mrg
+        data = pd.read_pickle('../data/train_v2.pkl')
+    return data
 
 ''' unused function for model selection '''
 def predict_competitor(all_data):
