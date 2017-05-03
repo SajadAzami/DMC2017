@@ -86,8 +86,14 @@ def prepare_dataset():
     else:
         mrg = pd.read_pickle('../data/unit_fixed.pkl')
 
-    # fill campaignIndex with D and then get dummy binary values of each category index
-    mrg['campaignIndex'].fillna('D', inplace=True)
+    # To be filled with D
+    campaign_missing = data[pd.isnull(data['campaignIndex'])]['lineID']
+    adFlag_missing = data[data['adFlag'] == 0]['lineID']
+    intersections = pd.Series(list(set(campaign_missing).intersection(set(adFlag_missing))))
+    ind = data.lineID.isin(intersections.tolist())
+    data['campaignIndex'].fillna(data[ind]['campaignIndex'].fillna('D'), inplace=True)
+    # mrg['campaignIndex'].fillna('D', inplace=True)
+
     mrg = pd.concat([mrg, pd.get_dummies(mrg['campaignIndex'])], axis=1)
     mrg = mrg.drop('campaignIndex', 1)
 
