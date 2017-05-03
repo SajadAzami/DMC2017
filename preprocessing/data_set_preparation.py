@@ -5,7 +5,7 @@ from pathlib import Path
 from sklearn.metrics import mean_squared_error, make_scorer
 
 from preprocessing.data_preparation import read_data
-from xgboost import XGBRegressor
+import xgboost as xgb
 from sklearn.model_selection import cross_val_score, KFold
 
 
@@ -51,6 +51,24 @@ unit_map = {
 def unit_converter(row):
     return row['content_3'] * unit_map[row['unit']]
 
+def fill_competitor_missings(data):
+    df = data[['lineID', 'day', 'weekDay', 'rrp', 'price', 'competitorPrice']]
+    train = df[pd.notnull(df['competitorPrice'])]
+    train = train[train['competitorPrice'] != 0]
+
+    x = train[['day', 'weekDay', 'rrp', 'price']]
+    y = train['competitorPrice']
+    T_train_xgb = xgb.DMatrix(x, y)
+
+    params = {"objective": "reg:linear", "booster": "gblinear"}
+    gbm = xgb.train(dtrain=T_train_xgb, params=params)
+
+    competitor_missing_ids = set(df['lineID']) - set(train['lineID'])
+    na_rows = df[['day', 'weekDay', 'rrp', 'price']][df['lineID'].isin(competitor_missing_ids)]
+    y_pred = gbm.predict(xgb.DMatrix(na_rows))
+    data.ix[data['lineID'].isin(competitor_missing_ids), 'competitorPrice'] = y_pred
+    return data
+
 def prepare_dataset():
     output = Path('../data/unit_fixed.pkl')
     if not output.is_file():
@@ -84,22 +102,20 @@ def prepare_dataset():
     else:
         mrg = pd.read_pickle('../data/unit_fixed.pkl')
 
-    # fill campaignIndex with D and then get dummy binary values of each category index
-    mrg['campaignIndex'].fillna('D', inplace=True)
-    mrg = pd.concat([mrg, pd.get_dummies(mrg['campaignIndex'])], axis=1)
-    mrg = mrg.drop('campaignIndex', 1)
+    mrg['weekDay'] = mrg['day'] % 7
 
-    mrg = mrg.drop('category', 1)
+    mrg = pd.concat([mrg, pd.get_dummies(mrg['unit'])], axis=1)
+    mrg = mrg.drop('unit', 1)
 
-    # mrg = pd.concat([mrg, pd.get_dummies(mrg['group'])], axis=1)
-    mrg = mrg.drop('group', 1)
+    mrg = fill_competitor_missings(mrg)
+    pd.to_pickle(mrg, '../data/filled_competitor.pkl')
     return mrg
 
-
+''' unused function for model selection '''
 def predict_competitor(all_data):
     train = all_data[pd.notnull(all_data['competitorPrice'])]
     kf = KFold(n_splits=10)
-    estimator = XGBRegressor()
+    estimator = xgb.XGBRegressor()
     x = train.drop('competitorPrice', 1)
     y = train['competitorPrice']
     scores = cross_val_score(estimator,
@@ -108,5 +124,6 @@ def predict_competitor(all_data):
                              cv=kf,
                              scoring=make_scorer(mean_squared_error))
     print(scores)
+
 
 prepare_dataset()
