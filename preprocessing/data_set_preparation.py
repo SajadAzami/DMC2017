@@ -40,18 +40,22 @@ def extract_numbers_from_content(input):
         return 1, input[0: x_index], second_part
     return input[0: x_index], second_part[0: x_second_index], second_part[x_second_index + 1: len(second_part)]
 
+
 unit_map = {
-        'KG': 1000,
-        'ST': 6350,
-        'P': 454,
-        'M': 100,
-        'L': 1000,
-        'G': 1,
-        'CM': 1,
-        'ML': 1,
-    }
+    'KG': 1000,
+    'ST': 6350,
+    'P': 454,
+    'M': 100,
+    'L': 1000,
+    'G': 1,
+    'CM': 1,
+    'ML': 1,
+}
+
+
 def unit_converter(row):
     return row['content_3'] * unit_map[row['unit']]
+
 
 def fill_competitor_missings(data):
     df = data[['lineID', 'day', 'weekDay', 'rrp', 'price', 'competitorPrice']]
@@ -70,6 +74,7 @@ def fill_competitor_missings(data):
     y_pred = gbm.predict(xgb.DMatrix(na_rows))
     data.ix[data['lineID'].isin(competitor_missing_ids), 'competitorPrice'] = y_pred
     return data
+
 
 def prepare_items():
     items = pd.read_csv('../data/items.csv')
@@ -95,12 +100,14 @@ def prepare_items():
     x_train = items[pd.notnull(items['category'])]
     y_train = x_train['category']
     pids = set(items['pid']) - set(x_train['pid'])
-    x_train = x_train[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    x_train = x_train[
+        ["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
     from sklearn.neighbors import KNeighborsClassifier
     classifier = KNeighborsClassifier(n_neighbors=8, weights='distance', n_jobs=3)
     classifier.fit(x_train, y_train)
     x_test = items[items['pid'].isin(pids)]
-    x_test = x_test[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    x_test = x_test[
+        ["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
     y_pred = classifier.predict(x_test)
     items.ix[items['pid'].isin(pids), 'category'] = y_pred
 
@@ -108,6 +115,7 @@ def prepare_items():
     items = pd.concat([items, pd.get_dummies(items['pharmForm'])], axis=1)
     items = items.drop('pharmForm', 1)
     return items
+
 
 def prepare_dataset():
     output = Path('../data/train_v2.pkl')
@@ -162,7 +170,8 @@ def prepare_dataset():
         data = pd.read_pickle('../data/train_v2.pkl')
     return data
 
-''' unused function for model selection '''
+
+# Unused function for model selection
 def predict_competitor(all_data):
     train = all_data[pd.notnull(all_data['competitorPrice'])]
     kf = KFold(n_splits=10)
@@ -176,9 +185,11 @@ def predict_competitor(all_data):
                              scoring=make_scorer(mean_squared_error))
     print(scores)
 
+
 prepare_dataset()
 
-'''unused function finds best number of neighbors for knn of category feature'''
+
+# Unused function finds best number of neighbors for knn of category feature
 def find_best_number_of_neighbors_knn():
     items = pd.read_csv('../data/items.csv')
     items['pharmForm'] = items['pharmForm'].str.upper()
@@ -199,19 +210,21 @@ def find_best_number_of_neighbors_knn():
     items = items.replace({'unit': mapping})
     items = pd.concat([items, pd.get_dummies(items['unit'])], axis=1)
     items = items.drop('unit', 1)
-    items = items[["manufacturer", "group", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp", 'category']]
+    items = items[["manufacturer", "group", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct",
+                   "salesIndex", "rrp", 'category']]
     items = items[pd.notnull(items['category'])]
-    x = items[["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
+    x = items[
+        ["manufacturer", "content_1", "content_2", "content_3", "G", "ML", "CM", "genericProduct", "salesIndex", "rrp"]]
     y = items['category']
 
     from sklearn.model_selection import train_test_split
-    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size = 0.25, random_state = 0)
+    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.25, random_state=0)
 
     from sklearn.neighbors import KNeighborsClassifier
     from sklearn.model_selection import GridSearchCV
 
     param_grid = {"n_neighbors": np.linspace(start=3, stop=99, dtype=np.int32),
-        "weights": ['uniform', 'distance']}
+                  "weights": ['uniform', 'distance']}
 
     model = KNeighborsClassifier()
 

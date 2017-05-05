@@ -6,7 +6,7 @@ from sklearn.externals import joblib
 
 data = pd.read_pickle('data/unit_fixed.pkl')
 parameter_grid = {
-    'n_estimators': [100, 500, 1000, 5000, 10000]
+    'n_estimators': [100, 500, 1000]
 }
 
 forest = RandomForestRegressor(n_jobs=-1,
@@ -21,6 +21,5 @@ grid_search = GridSearchCV(forest,
 grid_search.fit(train_X, train_Y)
 print('Best score: {}'.format(grid_search.best_score_))
 print('Best parameters: {}'.format(grid_search.best_params_))
-
 
 joblib.dump(grid_search, 'forest_model.pkl')
