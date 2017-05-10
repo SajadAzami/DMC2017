@@ -1,4 +1,4 @@
-"""DMC2017, 4/13/17, Sajad Azami"""
+"""DMC2017, 4/13/17"""
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -6,8 +6,6 @@ import pandas as pd
 import seaborn as sns
 from matplotlib import gridspec
 from preprocessing import data_preparation
-
-__author__ = 'sajjadaazami@gmail.com (Sajad Azami)'
 
 train_full_data = data_preparation.read_data('../data/train.csv')
 item_full_data = data_preparation.read_data('../data/items.csv')
