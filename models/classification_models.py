@@ -363,10 +363,19 @@ y_prob = model.predict_proba(X_te)
 y_prob = y_prob[:,-1]
 
 
+y_pred[data[(data['day'] >= 32) & (data['day'] < 63)]['availability'] == 4] = 0
+y_prob[data[(data['day'] >= 32) & (data['day'] < 63)]['availability'] == 4] = 0
+
 show_results(y_te, y_pred, y_prob, comb, mults)
 
-xx = y_pred - y_te
-accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
-model.save('model_' + str(accuracy))
 
+#--------- uncomment to save model
+# xx = y_pred - y_te
+# accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
+# model.save('model_' + str(accuracy))
+
+
+#----- loading model
+# from keras.models import load_model
+# model = load_model('model_95')
 
