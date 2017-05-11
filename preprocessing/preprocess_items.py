@@ -1,4 +1,4 @@
-from .data_utils import *
+from preprocessing.data_utils import *
 
 
 class ItemsPreprocessor:
@@ -8,9 +8,12 @@ class ItemsPreprocessor:
     def _prepare_pharm_form(self):
         # uppercase all pharmForm values
         self.items_df['pharmForm'] = self.items_df['pharmForm'].str.upper()
+
+
+
         # extract pharmForm values as binary feature and adding them to dataset
-        self.items_df = pd.concat([self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
-        self.items_df = self.items_df.drop('pharmForm', axis=1)
+        # self.items_df = pd.concat([self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
+        # self.items_df = self.items_df.drop('pharmForm', axis=1)
 
     def _prepare_content(self):
         def extract_numbers_from_content(input):

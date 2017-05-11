@@ -45,20 +45,3 @@ def merge_data(train_df, items_df):
     train_merged = train_df.copy()
     train_merged = train_merged.merge(train_df.merge(items_df, how='left', on='pid', sort=False))
     return train_merged
-
-
-def merge_data2(input_path, items_path=None, output_path=None, items_df=None):
-    tdf = load_data(input_path)
-    if isinstance(items_df, pd.DataFrame):
-        idf = items_df
-    else:
-        idf = load_data(items_path)
-    print('data read successfully!')
-    output = Path(output_path)
-    if not output.is_file():
-        train_merged = tdf.copy()
-        train_merged = train_merged.merge(tdf.merge(idf, how='left', on='pid', sort=False))
-        pd.to_pickle(train_merged, output_path)
-        return train_merged
-    else:
-        return pd.read_pickle(output_path)

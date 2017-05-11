@@ -1,6 +1,6 @@
-from .preprocess_items import ItemsPreprocessor
-from .preprocess_train import TrainProcessor
-from .data_utils import *
+from preprocessing.preprocess_items import ItemsPreprocessor
+from preprocessing.preprocess_train import TrainProcessor
+from preprocessing.data_utils import *
 
 
 def preprocess():

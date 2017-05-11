@@ -1,4 +1,4 @@
-from .data_utils import *
+from preprocessing.data_utils import *
 import xgboost as xgb
 from sklearn.naive_bayes import GaussianNB
 
