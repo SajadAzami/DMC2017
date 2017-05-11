@@ -9,11 +9,18 @@ class ItemsPreprocessor:
         # uppercase all pharmForm values
         self.items_df['pharmForm'] = self.items_df['pharmForm'].str.upper()
 
-
-
+        items_with_dummy_pharmForms = pd.concat(
+            [self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
+        counted_pharmForm_per_group = items_with_dummy_pharmForms.groupby('group').agg('sum')
+        counted_pharmForm_per_group = counted_pharmForm_per_group.drop(
+            ['pid', 'manufacturer', 'genericProduct', 'salesIndex', 'category', 'rrp'], 1)
+        pharm_of_group = counted_pharmForm_per_group.idxmax(axis=1)
+        filled = self.items_df[['group', 'pharmForm']].apply(
+            lambda x: pharm_of_group.get(x[0]) if pd.isnull(x[1]) else x[1], axis=1)
+        self.items_df['pharmForm'] = filled
         # extract pharmForm values as binary feature and adding them to dataset
-        # self.items_df = pd.concat([self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
-        # self.items_df = self.items_df.drop('pharmForm', axis=1)
+        self.items_df = pd.concat([self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
+        self.items_df = self.items_df.drop('pharmForm', axis=1)
 
     def _prepare_content(self):
         def extract_numbers_from_content(input):

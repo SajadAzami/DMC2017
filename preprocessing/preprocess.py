@@ -16,3 +16,8 @@ def preprocess():
         data_df = train_processor.data_df
 
     return data_df
+
+if __name__ == '__main__':
+    items_processor = ItemsPreprocessor()
+    items_processor.prepare()
+    print(show_missing(items_processor.items_df))
