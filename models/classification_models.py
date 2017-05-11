@@ -22,7 +22,7 @@ from pandas import *
 from sklearn import cluster
 
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Dropout, Activation
 
 # uncomment if you want to run on GPU(nothing needs to be done if you are using Tensorflow backend)
 # import theano
@@ -127,7 +127,7 @@ def calc_mult(train):
 
 def add_mult(data, price_multiplier, pids):
     # setting it to 0.0 decreases MSE
-    data['mult'] = 1.0
+    data['mult'] = 0.0
     #
     mult_list = data['mult'].tolist()
     #
@@ -188,6 +188,8 @@ def show_results(y_te, y_pred, y_prob, comb, mults):
 # test = pd.read_csv(testfile)
 # items = pd.read_csv(itemsfile)
 
+data.drop(['count'], axis=1,inplace=True)
+
 # ----------------- decrease number of values in features
 cluster_features = False
 if cluster_features:
@@ -208,11 +210,35 @@ else:
 
 # data = cluster_feature(data, 'pid')
 
-# data['discount'] = (data['rrp'] - data['price']) / data['rrp']
-# data['compete'] = (data['price'] - data['competitorPrice']) / data['price']
+data['discount'] = (data['rrp'] - data['price']) / data['rrp']
+data['compete'] = (data['price'] - data['competitorPrice']) / data['price']
+
+data['f1'] = (data['rrp'] - data['price'])
+data['f2'] = (data['rrp'] / data['price'])
+data['f3'] = (data['rrp'] - data['competitorPrice'])
+data['f4'] = (data['price'] - data['competitorPrice'])
+data['f5'] = (data['price'] / data['competitorPrice'])
+
+data['revenue_mean'] = 0.0
+data['revenue_sum'] = 0.0
+data['order_sum'] = 0.0
+data['order_mean'] = 0.0
+for i in range(1, 93):
+    data.loc[data['day'] == i,'revenue_mean'] = data[data['day'] == i]['revenue'].mean()
+    data.loc[data['day'] == i,'revenue_sum'] = data[data['day'] == i]['revenue'].sum()
+    data.loc[data['day'] == i,'order_mean'] = data[data['day'] == i]['order'].mean()
+    data.loc[data['day'] == i,'order_sum'] = data[data['day'] == i]['order'].sum()
+    print(i)
+
 
 # data.drop(['compete'], axis=1,inplace=True)
 # data.drop(['discount'], axis=1,inplace=True)
+
+# data.drop(['f1'], axis=1,inplace=True)
+# data.drop(['f2'], axis=1,inplace=True)
+# data.drop(['f3'], axis=1,inplace=True)
+# data.drop(['f4'], axis=1,inplace=True)
+# data.drop(['f5'], axis=1,inplace=True)
 
 # tr = data[:100000].copy()
 # te = data[100000:150000].copy()
@@ -233,6 +259,7 @@ te.drop(['mult'], axis=1,inplace=True)
 
 #----------------- you can run from here if you need to test another model
 tr = data[data['day'] < 32].copy()
+tr = pd.concat([tr.copy(), tr[tr['order'] == 1].copy()])
 te = data[(data['day'] >= 32) & (data['day'] < 63)].copy()
 comb = pd.concat([tr,te])
 
@@ -282,7 +309,7 @@ comb.drop(['pid'], axis=1,inplace=True)
 
 weekDay_dummies  = pd.get_dummies(comb['weekDay'])
 comb = pd.concat([comb, weekDay_dummies], axis=1)
-comb.drop(['weekDay'], axis=1,inplace=True)
+# comb.drop(['weekDay'], axis=1,inplace=True)
 # comb.drop(['weekDay'], axis=1,inplace=True)
 
 # tr = comb[0:100000].copy()
@@ -318,20 +345,22 @@ te.drop(['revenue'], axis=1,inplace=True)
 # lsa = make_pipeline(svd, Normalizer(copy=False))
 lsa = make_pipeline(Normalizer(copy=False))
 
-# model = KNeighborsClassifier(10)
+# model = KNeighborsClassifier(10,verbose=1)
 # model = DecisionTreeClassifier(max_depth=5)
-# model = MLPClassifier(alpha=0.1)
-# model = RandomForestClassifier(max_depth=10, n_estimators=1000, max_features=10)
-# model = GaussianNB()
-# model = linear_model.LogisticRegression()
+# model = MLPClassifier(alpha=0.1,verbose=1)
+# model = RandomForestClassifier(max_depth=10, n_estimators=1000, max_features=10, verbose=1)
+model = RandomForestClassifier(n_estimators=100, verbose=1)
+# model = GaussianNB(,verbose=1)
+# model = linear_model.LogisticRegression(verbose=1)
 # model = svm.SVC(kernel='sigmoid', gamma=5,C=1)
 
-DNN = True
+DNN = False
 if DNN:
     model = Sequential()
-    model.add(Dense(2000, input_dim=tr.shape[1]-1, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(500, input_dim=500, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(500, input_dim=500, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(100, input_dim=tr.shape[1]-1, kernel_initializer='normal', activation='relu'))
+    # model.add(Dropout(0.5))
+    # model.add(Dense(1000, input_dim=1000, kernel_initializer='normal', activation='relu'))
+    # model.add(Dropout(0.5))
     model.add(Dense(1, kernel_initializer='normal', activation='sigmoid'))
     # Compile model
     model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
@@ -343,7 +372,7 @@ y = tr['order']
 t1 = time.time()
 if DNN:
     model.fit(X, y, batch_size=32, epochs=10) 
-    # model.save('NN')
+    # model.save('NN'
 else:
     model.fit(X, y)
 
@@ -367,12 +396,35 @@ y_pred[data[(data['day'] >= 32) & (data['day'] < 63)]['availability'] == 4] = 0
 y_prob[data[(data['day'] >= 32) & (data['day'] < 63)]['availability'] == 4] = 0
 
 show_results(y_te, y_pred, y_prob, comb, mults)
+# mults3 = mults2.copy()
 
 
+#------------------- checking different cutoffs
+mse_cont_list = []
+mse_list = []
+acc_list = []
+for i in range(0,20):
+    y_pred2 = y_prob.copy()
+    y_pred2[y_pred2 > i * 0.05] = 1
+    y_pred2[y_pred2 <= i * 0.05] = 0
+    print(y_pred2.mean())
+    y_r = comb[(comb['day'] >= 32) & (comb['day'] < 63)]['revenue'].copy()
+    mse_continues = ((y_prob*te['price']*mults - y_r)**2).sum() / float(y_te.shape[0])
+    mse_cont_list.append(mse_continues)
+    # print('MSE(Continuous Probability) = ' + str(mse_continues))
+    mse = ((y_pred2*te['price']*mults - y_r)**2).sum() / float(y_te.shape[0])
+    mse_list.append(mse)
+    xx = y_pred2 - y_te
+    accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
+    acc_list.append(accuracy*100)
+    # print('MSE(Discrete 0,1) = ' + str(mse))
+
+plt.plot(mse_cont_list, '-b', mse_list, '-r', acc_list, '-k')
+plt.show()
 #--------- uncomment to save model
 # xx = y_pred - y_te
 # accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
-# model.save('model_' + str(accuracy))
+# model.save('model_' + str(accuracy) + 'features_added')
 
 
 #----- loading model
