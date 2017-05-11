@@ -127,7 +127,7 @@ def calc_mult(train):
 
 def add_mult(data, price_multiplier, pids):
     # setting it to 0.0 decreases MSE
-    data['mult'] = 0.0
+    data['mult'] = 1.0
     #
     mult_list = data['mult'].tolist()
     #
@@ -210,6 +210,8 @@ else:
 
 # data = cluster_feature(data, 'pid')
 
+
+#------------------------------ adding some features
 data['discount'] = (data['rrp'] - data['price']) / data['rrp']
 data['compete'] = (data['price'] - data['competitorPrice']) / data['price']
 
@@ -219,6 +221,7 @@ data['f3'] = (data['rrp'] - data['competitorPrice'])
 data['f4'] = (data['price'] - data['competitorPrice'])
 data['f5'] = (data['price'] / data['competitorPrice'])
 
+#---- mean and sum per day
 data['revenue_mean'] = 0.0
 data['revenue_sum'] = 0.0
 data['order_sum'] = 0.0
@@ -259,7 +262,7 @@ te.drop(['mult'], axis=1,inplace=True)
 
 #----------------- you can run from here if you need to test another model
 tr = data[data['day'] < 32].copy()
-tr = pd.concat([tr.copy(), tr[tr['order'] == 1].copy()])
+# tr = pd.concat([tr.copy(), tr[tr['order'] == 1].copy()])
 te = data[(data['day'] >= 32) & (data['day'] < 63)].copy()
 comb = pd.concat([tr,te])
 
@@ -344,20 +347,21 @@ te.drop(['revenue'], axis=1,inplace=True)
 # pca = PCA(n_components=100)
 # lsa = make_pipeline(svd, Normalizer(copy=False))
 lsa = make_pipeline(Normalizer(copy=False))
+weight_1 = tr[tr['order'] == 0].shape[0]/float(tr[tr['order'] == 1].shape[0])
 
 # model = KNeighborsClassifier(10,verbose=1)
 # model = DecisionTreeClassifier(max_depth=5)
 # model = MLPClassifier(alpha=0.1,verbose=1)
 # model = RandomForestClassifier(max_depth=10, n_estimators=1000, max_features=10, verbose=1)
-model = RandomForestClassifier(n_estimators=100, verbose=1)
+model = RandomForestClassifier(n_estimators=100, verbose=1, class_weight={0:1., 1:weight_1})
 # model = GaussianNB(,verbose=1)
 # model = linear_model.LogisticRegression(verbose=1)
-# model = svm.SVC(kernel='sigmoid', gamma=5,C=1)
+# model = svm.SVC(kernel='sigmoid', gamma=5,C=1,verbose=1)
 
 DNN = False
 if DNN:
     model = Sequential()
-    model.add(Dense(100, input_dim=tr.shape[1]-1, kernel_initializer='normal', activation='relu'))
+    model.add(Dense(2000, input_dim=tr.shape[1]-1, kernel_initializer='normal', activation='relu'))
     # model.add(Dropout(0.5))
     # model.add(Dense(1000, input_dim=1000, kernel_initializer='normal', activation='relu'))
     # model.add(Dropout(0.5))
@@ -371,7 +375,7 @@ X = lsa.fit_transform(X)
 y = tr['order']
 t1 = time.time()
 if DNN:
-    model.fit(X, y, batch_size=32, epochs=10) 
+    model.fit(X, y, batch_size=32, epochs=10, class_weight = {0:1., 1:weight_1}) 
     # model.save('NN'
 else:
     model.fit(X, y)
@@ -421,7 +425,7 @@ for i in range(0,20):
 
 plt.plot(mse_cont_list, '-b', mse_list, '-r', acc_list, '-k')
 plt.show()
-#--------- uncomment to save model
+#--------- uncomment to save model ( keras )
 # xx = y_pred - y_te
 # accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
 # model.save('model_' + str(accuracy) + 'features_added')
@@ -431,3 +435,9 @@ plt.show()
 # from keras.models import load_model
 # model = load_model('model_95')
 
+
+
+
+#--
+# np.save('model_' + str(accuracy) + 'features_added', model)
+# model = np.load('filename')
