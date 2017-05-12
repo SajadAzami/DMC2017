@@ -1,5 +1,5 @@
-data/
 .idea/
-data.zip
+data/*
+!data/.gitkeep
 *.pdf
 *.npy
