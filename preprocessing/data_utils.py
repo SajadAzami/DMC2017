@@ -3,6 +3,7 @@ from pathlib import Path
 
 DATA_MERGED_PICKLE = 'data_merged_pickle.pkl'
 DATA_FINAL_PICKLE = 'data_final_pickle.pkl'
+DATA_FINAL_DUMMY_MANUFACTURER_PICKLE = 'data_final_dummy_manufacturer_pickle.pkl'
 
 
 def load_data(path, label_name=None, drop_cols=None, mode='csv'):

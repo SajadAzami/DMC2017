@@ -8,7 +8,7 @@ def preprocess():
     items_processor.prepare()
 
     if check_if_file_exists('../data/{filename}'.format(filename=DATA_FINAL_PICKLE)):
-        data_df = load_data('../data/{filename}'.format(filename=DATA_FINAL_PICKLE))
+        data_df = load_data('../data/{filename}'.format(filename=DATA_FINAL_PICKLE), mode='pkl')
     else:
         train_processor = TrainProcessor(items_processor.items_df)
         train_processor.prepare()
@@ -18,6 +18,4 @@ def preprocess():
     return data_df
 
 if __name__ == '__main__':
-    items_processor = ItemsPreprocessor()
-    items_processor.prepare()
-    print(show_missing(items_processor.items_df))
+    preprocess()

@@ -90,8 +90,20 @@ class ItemsPreprocessor:
         self.items_df.ix[self.items_df['pid'].isin(pids), 'category'] = y_pred
         return self.items_df
 
+    def _prepare_group(self):
+        def _get_first_char(string):
+            return int(string[0])
+        self.items_df['group'] = self.items_df['group'].apply(_get_first_char)
+
+
     def prepare(self):
         self._prepare_pharm_form()
         self._prepare_content()
         self._prepare_unit()
         self._impute_category()
+        self._prepare_group()
+
+
+if __name__ == '__main__':
+    items_processor = ItemsPreprocessor()
+    items_processor._prepare_manufacturer()

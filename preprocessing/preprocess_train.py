@@ -11,7 +11,7 @@ class TrainProcessor:
 
     def prepare(self):
         if check_if_file_exists('../data/{filename}'.format(filename=DATA_MERGED_PICKLE)):
-            self.data_df = load_data('../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
+            self.data_df = load_data('../data/{filename}'.format(filename=DATA_MERGED_PICKLE), mode='pkl')
         else:
             self.data_df = merge_data(self._train_df, self._items_df)
             pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
@@ -22,6 +22,8 @@ class TrainProcessor:
         self._prepare_availability()
         self._add_discount_rate_feature()
         self._add_count_feature()
+        self.data_df = self.data_df.drop('lineID', axis=1)
+        self._prepare_manufacturer()
 
         pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_FINAL_PICKLE))
 
@@ -86,3 +88,7 @@ class TrainProcessor:
 
     def _add_count_feature(self):
         self.data_df['count'] = self.data_df.revenue / self.data_df.price
+
+    def _prepare_manufacturer(self):
+        self.data_df = pd.concat([self.data_df, pd.get_dummies(self.data_df['manufacturer'], prefix='man')], axis=1)
+        self.data_df = self.data_df.drop('manufacturer', axis=1)
