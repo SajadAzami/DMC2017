@@ -6,7 +6,7 @@ DATA_FINAL_PICKLE = 'data_final_pickle.pkl'
 DATA_FINAL_DUMMY_MANUFACTURER_PICKLE = 'data_final_dummy_manufacturer_pickle.pkl'
 
 
-def load_data(path, label_name=None, drop_cols=None, mode='csv'):
+def load_data(path, target_name=None, drop_cols=None, mode='csv'):
     if mode == 'csv':
         data = pd.read_csv(path)
     else:
@@ -15,10 +15,10 @@ def load_data(path, label_name=None, drop_cols=None, mode='csv'):
     if drop_cols:
         data = data.drop(drop_cols, axis=1)
 
-    if label_name is None:
+    if target_name is None:
         return data
     else:
-        return data_target(data, label_name)
+        return data_target(data, target_name)
 
 
 def check_if_file_exists(path):
@@ -36,10 +36,10 @@ def split_train_val_test(data):
     return train_df, val_df, test_df
 
 
-def data_target(data, label_name):
-    label = data[label_name]
-    data = data.drop(label_name, axis=1)
-    return data, label
+def data_target(data, target_name):
+    target = data[target_name]
+    data = data.drop(target_name, axis=1)
+    return data, target
 
 
 # To check how many columns have missing values - this can be repeated to see the progress made
