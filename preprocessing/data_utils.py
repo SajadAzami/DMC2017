@@ -31,8 +31,8 @@ def check_if_file_exists(path):
 
 def split_train_val_test(data):
     train_df = data[data['day'] <= 31]
-    val_df = data[data['day'] > 31 and data[data['day'] <= 62]]
-    test_df = data[data['day'] > 62 and data[data['day'] <= 92]]
+    val_df = data[(data['day'] > 31) & (data['day'] <= 62)]
+    test_df = data[(data['day'] > 62) & (data['day'] <= 92)]
     return train_df, val_df, test_df
 
 
