@@ -18,9 +18,7 @@ def load_data(path, label_name=None, drop_cols=None, mode='csv'):
     if label_name is None:
         return data
     else:
-        label = data[label_name]
-        data = data.drop(label_name, axis=1)
-        return data, label
+        return data_target(data, label_name)
 
 
 def check_if_file_exists(path):
@@ -29,6 +27,19 @@ def check_if_file_exists(path):
         return file
     else:
         return None
+
+
+def split_train_val_test(data):
+    train_df = data[data['day'] <= 31]
+    val_df = data[data['day'] > 31 and data[data['day'] <= 62]]
+    test_df = data[data['day'] > 62 and data[data['day'] <= 92]]
+    return train_df, val_df, test_df
+
+
+def data_target(data, label_name):
+    label = data[label_name]
+    data = data.drop(label_name, axis=1)
+    return data, label
 
 
 # To check how many columns have missing values - this can be repeated to see the progress made
