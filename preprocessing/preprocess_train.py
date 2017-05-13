@@ -1,6 +1,7 @@
 from preprocessing.data_utils import *
 import xgboost as xgb
 from sklearn.naive_bayes import GaussianNB
+from preprocessing.feature_classifier import *
 
 
 class TrainProcessor:
@@ -9,12 +10,14 @@ class TrainProcessor:
         self._train_df = load_data('../data/train.csv')
         self._items_df = items_df
 
-    def prepare(self):
-        if check_if_file_exists('../data/{filename}'.format(filename=DATA_MERGED_PICKLE)):
-            self.data_df = load_data('../data/{filename}'.format(filename=DATA_MERGED_PICKLE), mode='pkl')
-        else:
-            self.data_df = merge_data(self._train_df, self._items_df)
-            pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
+    def prepare(self, type=DATA_FINAL_PICKLE):
+        # if check_if_file_exists('../data/{filename}'.format(filename=DATA_MERGED_PICKLE)):
+        #     self.data_df = load_data('../data/{filename}'.format(filename=DATA_MERGED_PICKLE), mode='pkl')
+        # else:
+        #     self.data_df = merge_data(self._train_df, self._items_df)
+            # pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
+
+        self.data_df = merge_data(self._train_df, self._items_df)
 
         self._add_weekday_feature()
         self._impute_competitor_price()
@@ -23,9 +26,17 @@ class TrainProcessor:
         self._add_discount_rate_feature()
         self._add_count_feature()
         self.data_df = self.data_df.drop('lineID', axis=1)
-        self._prepare_manufacturer()
+        # self._prepare_manufacturer()
+        if (type == DATA_CLUSTERED_PICKLE):
+            self.data_df['pharmForm'] = cluster_feature(self.data_df, 'pharmForm')
+        if(type!=DATA_FINAL_PICKLE):
+            self.data_df['manufacturer'] = cluster_feature(self.data_df, 'manufacturer')
+            self.data_df['group'] = cluster_feature(self.data_df, 'group')
+            self.data_df['category'] = cluster_feature(self.data_df, 'category')
+        else:
+            self.data_df = self.data_df.drop('group', axis=1)
 
-        pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_FINAL_PICKLE))
+        pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=type))
 
     def _add_weekday_feature(self):
         self.data_df['weekDay'] = self.data_df['day'] % 7

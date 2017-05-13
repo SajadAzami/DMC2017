@@ -3,6 +3,8 @@ from pathlib import Path
 
 DATA_MERGED_PICKLE = 'data_merged_pickle.pkl'
 DATA_FINAL_PICKLE = 'data_final_pickle.pkl'
+DATA_CLUSTERED_PICKLE = 'data_clustered.pkl'
+DATA_CLUSTERED_EXCEPT_PHARMFORM_FINAL_PICKLE = 'data_clustered_except_pharmform.pkl'
 DATA_FINAL_DUMMY_MANUFACTURER_PICKLE = 'data_final_dummy_manufacturer_pickle.pkl'
 
 
