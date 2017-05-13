@@ -1,10 +1,10 @@
-import pandas as pd
 from sklearn import cluster
 from sklearn.metrics import silhouette_score
 import numpy as np
-from preprocessing.data_utils import *
+
 seed = 100
 np.random.seed(seed)
+
 
 def cluster_feature(train_merged2, feature_title):
     train_merged = train_merged2[~train_merged2[feature_title].isnull()]
@@ -12,36 +12,27 @@ def cluster_feature(train_merged2, feature_title):
     category_basket_list = train_merged.groupby(feature_title)['basket'].apply(list)
     category_click_list = train_merged.groupby(feature_title)['click'].apply(list)
     category_price_list = train_merged.groupby(feature_title)['price'].apply(list)
-    #
+
     indices = category_order_list.keys()
     category_list = {}
-    i = 1
-    for item in category_order_list:
-        category_list[i] = []
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    i = 1
-    for item in category_basket_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    i = 1
-    for item in category_click_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    i = 1
-    for item in category_price_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
+    for index, item in enumerate(category_order_list):
+        category_list[index] = []
+        category_list[index].append(float(sum(item)) / len(item))
+
+    for index, item in enumerate(category_basket_list):
+        category_list[index].append(float(sum(item)) / len(item))
+
+    for index, item in enumerate(category_click_list):
+        category_list[index].append(float(sum(item)) / len(item))
+
+    for index, item in enumerate(category_price_list):
+        category_list[index].append(float(sum(item)) / len(item))
+
     unique_values_len = len(indices)
-    #
     my_data = []
     for i in range(1, unique_values_len + 1):
         my_data.append(category_list[i])
-    #
+
     numpy_data = np.array(my_data)
     #
     # k_list = range(unique_values_len / 40, unique_values_len / 10)

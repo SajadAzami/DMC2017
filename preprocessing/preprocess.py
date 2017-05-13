@@ -6,7 +6,7 @@ from os import remove as remove_file
 
 def preprocess(type=DATA_FINAL_PICKLE):
     items_processor = ItemsPreprocessor()
-    items_processor.prepare(type!=DATA_CLUSTERED_PICKLE)
+    items_processor.prepare(type != DATA_CLUSTERED_PICKLE)
 
     if check_if_file_exists('../data/{filename}'.format(filename=type)):
         data_df = load_data('../data/{filename}'.format(filename=type), mode='pkl')
@@ -17,6 +17,7 @@ def preprocess(type=DATA_FINAL_PICKLE):
         data_df = train_processor.data_df
 
     return data_df
+
 
 def regenerate_datasets(types=[DATA_FINAL_PICKLE]):
     for type in types:

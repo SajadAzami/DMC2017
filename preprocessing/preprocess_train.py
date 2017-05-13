@@ -15,7 +15,7 @@ class TrainProcessor:
         #     self.data_df = load_data('../data/{filename}'.format(filename=DATA_MERGED_PICKLE), mode='pkl')
         # else:
         #     self.data_df = merge_data(self._train_df, self._items_df)
-            # pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
+        # pd.to_pickle(self.data_df, '../data/{filename}'.format(filename=DATA_MERGED_PICKLE))
 
         self.data_df = merge_data(self._train_df, self._items_df)
 
@@ -27,9 +27,9 @@ class TrainProcessor:
         self._add_count_feature()
         self.data_df = self.data_df.drop('lineID', axis=1)
         # self._prepare_manufacturer()
-        if (type == DATA_CLUSTERED_PICKLE):
+        if type == DATA_CLUSTERED_PICKLE:
             self.data_df['pharmForm'] = cluster_feature(self.data_df, 'pharmForm')
-        if(type!=DATA_FINAL_PICKLE):
+        if type != DATA_FINAL_PICKLE:
             self.data_df['manufacturer'] = cluster_feature(self.data_df, 'manufacturer')
             self.data_df['group'] = cluster_feature(self.data_df, 'group')
             self.data_df['category'] = cluster_feature(self.data_df, 'category')

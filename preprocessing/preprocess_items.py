@@ -18,7 +18,7 @@ class ItemsPreprocessor:
         filled = self.items_df[['group', 'pharmForm']].apply(
             lambda x: pharm_of_group.get(x[0]) if pd.isnull(x[1]) else x[1], axis=1)
         self.items_df['pharmForm'] = filled
-        if(get_dummy):
+        if (get_dummy):
             # extract pharmForm values as binary feature and adding them to dataset
             self.items_df = pd.concat([self.items_df, pd.get_dummies(self.items_df['pharmForm'])], axis=1)
             self.items_df = self.items_df.drop('pharmForm', axis=1)
@@ -94,8 +94,8 @@ class ItemsPreprocessor:
     def _prepare_group(self):
         def _get_first_char(string):
             return int(string[0])
-        self.items_df['omitted_group'] = self.items_df['group'].apply(_get_first_char)
 
+        self.items_df['omitted_group'] = self.items_df['group'].apply(_get_first_char)
 
     def prepare(self, get_dummy=True):
         self._prepare_pharm_form(get_dummy=get_dummy)
@@ -103,8 +103,3 @@ class ItemsPreprocessor:
         self._prepare_unit()
         self._impute_category()
         self._prepare_group()
-
-
-if __name__ == '__main__':
-    items_processor = ItemsPreprocessor()
-    items_processor._prepare_manufacturer()
