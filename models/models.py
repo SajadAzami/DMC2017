@@ -32,7 +32,7 @@ class NeuralNets:
 
         ratio = round(zero_df.shape[0] / one_df.shape[0])
 
-        for zero_df in self.divide_abundant_data(zero_df, ratio):
+        for zero_df in self.divide_abundant_target(zero_df, ratio):
             yield data_target(pd.concat([one_df, zero_df]), 'order')
 
     @staticmethod
@@ -57,7 +57,7 @@ class NeuralNets:
         return model
 
     @staticmethod
-    def divide_abundant_data(data_df, ratio):
+    def divide_abundant_target(data_df, ratio):
         data_df = shuffle(data_df)
         part_size = math.ceil(data_df.shape[0] / ratio)
         for i in range(0, ratio):
