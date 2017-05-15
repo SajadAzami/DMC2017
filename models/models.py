@@ -4,12 +4,8 @@ from sklearn import preprocessing
 from sklearn.metrics import classification_report, precision_score, recall_score, auc, roc_curve
 import pandas as pd
 import numpy as np
-import math
-from sklearn.utils import class_weight
-from sklearn.model_selection import ShuffleSplit
-from sklearn.utils import shuffle
 
-from preprocessing.data_utils import load_data, split_train_val_test, data_target, DATA_FINAL_PICKLE
+from preprocessing.data_utils import load_data, split_train_val_test, split_abundant_target, data_target, DATA_FINAL_PICKLE
 
 # fix random seed for reproducibility
 seed = 7
@@ -32,7 +28,7 @@ class NeuralNets:
 
         ratio = round(zero_df.shape[0] / one_df.shape[0])
 
-        for zero_df in self.divide_abundant_target(zero_df, ratio):
+        for zero_df in split_abundant_target(zero_df, ratio):
             yield data_target(pd.concat([one_df, zero_df]), 'order')
 
     @staticmethod
@@ -52,16 +48,13 @@ class NeuralNets:
                       loss='binary_crossentropy',
                       metrics=['accuracy'])
 
-        model.fit(train_data, train_target, validation_data=(val_data, val_target), epochs=1, class_weight=class_weight)
+        model.fit(train_data, train_target,
+                  validation_data=(val_data, val_target),
+                  epochs=1,
+                  class_weight=class_weight,
+                  batch_size=128)
         # model.save('simple_nn_v1.h5')
         return model
-
-    @staticmethod
-    def divide_abundant_target(data_df, ratio):
-        data_df = shuffle(data_df)
-        part_size = math.ceil(data_df.shape[0] / ratio)
-        for i in range(0, ratio):
-            yield data_df[i * part_size:min((i + 1) * part_size, data_df.shape[0])]
 
     # def complex_nn(self):
     #     print('complex nn')
@@ -86,7 +79,8 @@ class NeuralNets:
     #     model.save('complex_nn_v1.h5')
     #     return model
 
-    def describe(self, target_true, target_pred):
+    @staticmethod
+    def describe(target_true, target_pred):
         report = classification_report(target_true, target_pred)
         print()
         print('classification report')

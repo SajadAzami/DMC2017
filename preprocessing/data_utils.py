@@ -1,5 +1,8 @@
+import math
 import pandas as pd
 from pathlib import Path
+
+from sklearn.utils import shuffle
 
 DATA_MERGED_PICKLE = 'data_merged_pickle.pkl'
 DATA_FINAL_PICKLE = 'data_final_pickle.pkl'
@@ -59,3 +62,10 @@ def merge_data(train_df, items_df):
     train_merged = train_df.copy()
     train_merged = train_merged.merge(train_df.merge(items_df, how='left', on='pid', sort=False))
     return train_merged
+
+
+def split_abundant_target(data_df, ratio):
+    data_df = shuffle(data_df)
+    part_size = math.ceil(data_df.shape[0] / ratio)
+    for i in range(0, ratio):
+        yield data_df[i * part_size:min((i + 1) * part_size, data_df.shape[0])]
