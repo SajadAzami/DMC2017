@@ -42,7 +42,7 @@ class NeuralNets:
         return data, target
 
     @staticmethod
-    def simple_nn(train_data, train_target, val_data, val_target):
+    def simple_nn(train_data, train_target, val_data, val_target, class_weight=None):
         model = Sequential()
         model.add(Dense(256, activation='relu', input_dim=train_data.shape[1]))
         model.add(Dense(128, activation='relu', input_dim=100))
@@ -52,7 +52,7 @@ class NeuralNets:
                       loss='binary_crossentropy',
                       metrics=['accuracy'])
 
-        model.fit(train_data, train_target, validation_data=(val_data, val_target), epochs=1)
+        model.fit(train_data, train_target, validation_data=(val_data, val_target), epochs=1, class_weight=class_weight)
         # model.save('simple_nn_v1.h5')
         return model
 
@@ -117,14 +117,16 @@ if __name__ == '__main__':
         target_pred = model.predict_classes(val_data)
         nn.describe(val_target, target_pred)
 
-    # one_df, zero_dfs = nn.load_data()
-    #
-    # for zero_df in zero_dfs:
-    #     data_df = np.concatenate((zero_df, one_df))
-    #     train_df, train_target = data_target(data_df, 'order')
-    #     train_df = preprocessing.normalize(train_df, axis=1)
-    #     nn.simple_nn(train_df, train_target, nn.val_df, nn.val_target)
+    train_data, train_target = nn.preprocess_data(nn.train_df)
 
-    # model = nn.simple_nn()
-    # model = nn.complex_nn()
-    # nn.evaluate_model(model)
+    model = nn.simple_nn(train_data, train_target, val_data, val_target)
+    print()
+    print('target preds')
+    target_pred = model.predict_classes(val_data)
+    nn.describe(val_target, target_pred)
+
+    model = nn.simple_nn(train_data, train_target, val_data, val_target, class_weight={0: 1., 1: 2.2})
+    print()
+    print('target preds')
+    target_pred = model.predict_classes(val_data)
+    nn.describe(val_target, target_pred)
