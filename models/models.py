@@ -1,372 +1,196 @@
-import numpy as np  
-seed = 100
-np.random.seed(seed)
-import pandas as pd
-import matplotlib.pyplot as plt
-from sklearn import svm
-from sklearn.metrics import confusion_matrix
-from sklearn.pipeline import make_pipeline
-from sklearn.decomposition import TruncatedSVD
-from sklearn.preprocessing import Normalizer
-from sklearn import linear_model
-from sklearn.naive_bayes import GaussianNB
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neural_network import MLPClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.decomposition import PCA
-import time
-
-from sklearn.metrics import silhouette_score
-from pandas import *
-from sklearn import cluster
-
 from keras.models import Sequential
-from keras.layers import Dense, Activation
+from keras.layers import Dense, Dropout, BatchNormalization
+from sklearn import preprocessing
+from sklearn.metrics import classification_report, precision_score, recall_score, auc, roc_curve, mean_squared_error
+import pandas as pd
+import numpy as np
+import xgboost as xgb
 
-# uncomment if you want to run on GPU(nothing needs to be done if you are using Tensorflow backend)
-# import theano
-# theano.config.device = 'gpu'
-# theano.config.floatX = 'float32'
+from preprocessing.data_utils import *
 
-data = pd.read_pickle('../data/train_v2.pkl')
-# data.encode('utf-8').strip()
-# data.to_csv('train_v2.csv', encoding='utf-8')
+# fix random seed for reproducibility
+seed = 7
+np.random.seed(seed)
 
-def cluster_feature(train_merged2, feature_title):
-    train_merged = train_merged2[~train_merged2[feature_title].isnull()]
-    category_order_list = train_merged.groupby(feature_title)['order'].apply(list)
-    category_basket_list = train_merged.groupby(feature_title)['basket'].apply(list)
-    category_click_list = train_merged.groupby(feature_title)['click'].apply(list)
-    category_price_list = train_merged.groupby(feature_title)['price'].apply(list)
+
+class NeuralNets:
+    def __init__(self):
+        self.load_and_split()
+
+    def load_and_split(self):
+        data_df = load_data('../data/{filename}'.format(filename=DATA_FINAL_PICKLE),
+                            drop_cols=['count', 'click', 'basket', 'revenue'],
+                            mode='pkl')
+        self.train_df, self.val_df, self.test_df = split_train_val_test(data_df)
+        self.train_df.drop('day', axis=1)
+        self.val_df.drop('day', axis=1)
+        self.test_df.drop('day', axis=1)
+
+    def preprocess_train(self):
+        zero_df = self.train_df[self.train_df['order'] == 0]
+        one_df = self.train_df[self.train_df['order'] == 1]
+
+        ratio = round(zero_df.shape[0] / one_df.shape[0])
+
+        for zero_df in split_abundant_target(zero_df, ratio):
+            yield data_target(pd.concat([one_df, zero_df]), 'order')
+
+    @staticmethod
+    def preprocess_data(df):
+        df, target = data_target(df, 'order')
+        data = preprocessing.normalize(df, axis=1)
+        return data, target
+
+    @staticmethod
+    def simple_nn(train_data, train_target, val_data, val_target, class_weight=None):
+        model = Sequential()
+        model.add(Dense(train_data.shape[1], activation='relu', input_dim=train_data.shape[1]))
+        model.add(Dropout(0.5))
+        model.add(Dense(train_data.shape[1], activation='relu', input_dim=100))
+        model.add(Dropout(0.3))
+        model.add(Dense(train_data.shape[1], activation='relu', input_dim=100))
+        model.add(Dense(1, activation='sigmoid'))
+        model.compile(optimizer='rmsprop',
+                      loss='binary_crossentropy',
+                      metrics=['accuracy'])
+
+        model.fit(train_data, train_target,
+                  validation_data=(val_data, val_target),
+                  epochs=20,
+                  class_weight=class_weight,
+                  batch_size=2048)
+        return model
+
+    @staticmethod
+    def complex_nn():
+        pass
+
+    # def complex_nn(self):
+    #     print('complex nn')
+    #     model = Sequential([
+    #         Dense(256, activation='relu', input_dim=self.train_df.shape[1]),
+    #         Dropout(0.8),
+    #         Dense(128, activation='relu'),
+    #         Dropout(0.4),
+    #         Dense(32, activation='relu'),
+    #         Dense(1, activation='sigmoid'),
+    #     ])
+    #     model.compile(optimizer='rmsprop',
+    #                   loss='binary_crossentropy',
+    #                   metrics=['accuracy'])
     #
-    indices = category_order_list.keys()
-    category_list = {}
-    i = 1
-    for item in category_order_list:
-        category_list[i] = []
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
+    #     class_weights = class_weight.compute_class_weight('auto', np.unique(self.train_target), self.train_target)
+    #     print('class weights')
+    #     print(class_weights)
+    #     model.fit(self.train_df, self.train_target,
+    #               validation_data=(self.val_df, self.val_target),
+    #               epochs=1)
+    #     model.save('complex_nn_v1.h5')
+    #     return model
+
+    @staticmethod
+    def describe(target_true, target_pred):
+        report = classification_report(target_true, target_pred)
+        print()
+        print('classification report')
+        print(report)
+        precision = precision_score(target_true, target_pred)
+        print('precision score')
+        print(precision)
+        recall = recall_score(target_true, target_pred)
+        print('recall score')
+        print(recall)
+        fpr, tpr, thresholds = roc_curve(target_true, target_pred, pos_label=2)
+        auc_metric = auc(fpr, tpr)
+        print('auc')
+        print(auc_metric)
+
+
+if __name__ == '__main__':
+    nn = NeuralNets()
+
+    val_data, val_target = nn.preprocess_data(nn.val_df)
+    test_data, test_target = nn.preprocess_data(nn.test_df)
+
+    # models_weights = []
+    # for index, train_df, train_target in enumerate(nn.preprocess_train()):
+    #     train_data = preprocessing.normalize(train_df, axis=1)
+    #     model = nn.simple_nn(train_data, train_target, val_data, val_target)
+    #     model.save_weights('simple_nn_v{model_number}.h5'.format(model_number=index))
+    #     models_weights.append(model.get_weights())
+    #     print('model')
+    #     print(model.summary())
+    #     print()
+    #     print('target preds')
+    #     target_pred = model.predict_classes(test_data)
+    #     nn.describe(test_target, target_pred)
+
+    train_data, train_target = nn.preprocess_data(nn.train_df)
+
+    # model = nn.simple_nn(train_data, train_target, val_data, val_target)
+    # print()
+    # print('target preds')
+    # target_pred = model.predict_classes(val_data)
+    # nn.describe(val_target, target_pred)
     #
-    i = 1
-    for item in category_basket_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    i = 1
-    for item in category_click_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    i = 1
-    for item in category_price_list:
-        category_list[i].append(float(sum(item)) / len(item))
-        i += 1
-    #
-    unique_values_len = len(indices)
-    #
-    my_data = []
-    for i in range(1, unique_values_len + 1):
-        my_data.append(category_list[i])
-    #
-    numpy_data = np.array(my_data)
-    #
-    # k_list = range(unique_values_len / 40, unique_values_len / 10)
-    k_list = range(10, 40)
-    #
-    best_k = 0
-    best_score = 0
-    #
-    k_score = []
-    for k in k_list:
-        print(k)
-        k_means = cluster.KMeans(n_clusters=k)
-        k_means.fit(numpy_data)
-        labels = k_means.labels_
-        #
-        silhouette_avg = silhouette_score(numpy_data, labels)
-        #
-        if silhouette_avg > best_score:
-            best_score = silhouette_avg
-            best_k = k
-        k_score.append([k, silhouette_avg])
-    #
-    k_means = cluster.KMeans(n_clusters=best_k)
-    k_means.fit(numpy_data)
-    labels = k_means.labels_
-    #
-    label_map = {}
-    for i in range(unique_values_len):
-        label_map[indices[i]] = labels[i] + 1
-    #
-    for key in label_map:
-        train_merged2.loc[train_merged2[feature_title] == key, feature_title] = label_map[key]
-    #
-    return train_merged2
+    model = nn.simple_nn(train_data, train_target, val_data, val_target, class_weight={0: 1., 1: 2.5})
+    model.save('best_best.h5')
+    print()
+    print('target preds')
+    val_target_pred = model.predict_classes(val_data)
+    val_target_pred_prob = model.predict_proba(val_data)
+    nn.describe(val_target, val_target_pred)
 
-# ----------- calculate mean coeff of price to produce Revenue
-def calc_mult(train):
-    coef = (train['revenue']).groupby(train['pid']).mean()
-    coef[:] = 0
-    num = coef.copy()
-    #
-    for index, row in train.iterrows():
-        if row['order'] == 1:
-            x = row['revenue'] / float(row['price'])
-            coef[row['pid']] += x
-            num[row['pid']] += 1
-        if index % 1000 == 0:
-            print(index)
-    #
-    coef[coef == 0] = 1.0
-    num[num == 0] = 1.0
-    #
-    price_multiplier = coef / num
-    #
-    return price_multiplier, coef, num, train['pid'].unique().tolist()
+    # Regression part
+    data = load_data(path='../data/{filename}'.format(filename=DATA_CLUSTERED_EXCEPT_PHARMFORM_FINAL_PICKLE),
+                     drop_cols=['basket', 'click'
+                                # 'competitorPrice',
+                                # 'manufacturer',
+                                # 'salesIndex',
+                                # 'category',
+                                # 'rrp',
+                                # 'content_1', 'content_2', 'content_3',
+                                # 'CM', 'G', 'ML', 'P',
+                                # 'omitted_group',
+                                ],
+                     mode='pkl')
+    train_df, val_df, test_df = split_train_val_test(data)
+    train_df.drop('revenue', axis=1)
+    train_df.drop('day', axis=1)
+    val_df.drop('day', axis=1)
+    test_df.drop('day', axis=1)
 
-def add_mult(data, price_multiplier, pids):
-    # setting it to 0.0 decreases MSE
-    data['mult'] = 1.0
-    #
-    mult_list = data['mult'].tolist()
-    #
-    i = 0
-    t = 0
-    for index, row in data.iterrows():
-        if i == 0 and index > 0:
-            t = index
-        i = i + 1
-        if row['order'] == 1 and row['pid'] in pids:
-            mult_list[index - t] = price_multiplier[row['pid']]
-        if (index - t) % 1000 == 0:
-            print(index - t)
-    #
-    se = pd.Series(mult_list)
-    # df_temp = pd.DataFrame({'mult', mult_list})
-    data['mult'] = se.values
-    #
-    return data
+    train_data, train_target = data_target(train_df, 'count')
+    val_data, val_target = data_target(val_df, 'count')
+    val_data['order'] = val_target_pred_prob
+    # print(val_target_pred)
+    # print('------------------space----------------------')
+    # print(val_data['order'])
+    # val_df['order'] = val_order
+    # train_order[train_order < 0] = 0
+    # val_order[val_order < 0] = 0
 
+    # x = train_df.drop(['revenue', 'count', 'day'], axis=1)
+    # y = train_df['count']
+    T_train_xgb = xgb.DMatrix(train_data, train_target)
 
-def show_results(y_te, y_pred, y_prob, comb, mults):
-    mat = confusion_matrix(y_te, y_pred)
-    print('\nConfusion Matrix')
-    print(mat)
-    xx = y_pred - y_te
-    accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
-    print('Accuracy = ' + str(accuracy))
-    #
-    print('\nOrder')
-    mse_continues = ((y_prob - y_te)**2).sum() / float(y_te.shape[0])
-    print('MSE(Continuous Probability) = ' + str(mse_continues))
-    mse = ((y_pred - y_te)**2).sum() / float(y_te.shape[0])
-    print('MSE(Discrete 0,1) = ' + str(mse))
-    #
-    print('\nRevenue')
-    # y_r = comb[100000:150000]['revenue'].copy()
-    y_r = comb[(comb['day'] >= 32) & (comb['day'] < 63)]['revenue'].copy()
-    mse_continues = ((y_prob*te['price'] - y_r)**2).sum() / float(y_te.shape[0])
-    print('MSE(Continuous Probability) = ' + str(mse_continues))
-    mse = ((y_pred*te['price'] - y_r)**2).sum() / float(y_te.shape[0])
-    print('MSE(Discrete 0,1) = ' + str(mse))
-    #
-    print('\nRevenue with multiplication')
-    # y_r = comb[100000:150000]['revenue'].copy()
-    y_r = comb[(comb['day'] >= 32) & (comb['day'] < 63)]['revenue'].copy()
-    mse_continues = ((y_prob*te['price']*mults - y_r)**2).sum() / float(y_te.shape[0])
-    print('MSE(Continuous Probability) = ' + str(mse_continues))
-    mse = ((y_pred*te['price']*mults - y_r)**2).sum() / float(y_te.shape[0])
-    print('MSE(Discrete 0,1) = ' + str(mse))
+    params = {"objective": "reg:linear", "booster": "gblinear", "eval_metric": "rmse",
+              # "eta": 0.6,
+              # "gamma": 100,
+              # "max_depth": 18,
+              }
+    gbm = xgb.train(dtrain=T_train_xgb, params=params)
+    val_pred = gbm.predict(xgb.DMatrix(val_data))
+    val_pred = pd.Series(val_pred)
+    val_pred[val_pred < 0] = 0
+    print(val_pred.describe())
+    val_pred = val_pred.values * val_df['price'].values * val_df['order'].values
+    print(mean_squared_error(val_df['revenue'], val_pred))
 
-
-# trainfile = '../data/train.csv'
-# itemsfile = '../data/items.csv'
-# testfile = '../data/test.csv'
-
-# train = pd.read_csv(trainfile)
-# test = pd.read_csv(testfile)
-# items = pd.read_csv(itemsfile)
-
-# ----------------- decrease number of values in features
-cluster_features = False
-if cluster_features:
-    data = cluster_feature(data, 'pharmForm')
-    data = cluster_feature(data, 'manufacturer')
-    data = cluster_feature(data, 'group')
-    data = cluster_feature(data, 'category')
-    np.save('pharmForm.npy', data['pharmForm'])
-    np.save('manufacturer.npy', data['manufacturer'])
-    np.save('group.npy', data['group'])
-    np.save('category.npy', data['category'])
-else:
-    data['pharmForm'] = np.load('pharmForm.npy')
-    data['manufacturer'] = np.load('manufacturer.npy')
-    data['group'] = np.load('group.npy')
-    data['category'] = np.load('category.npy')
-
-
-# data = cluster_feature(data, 'pid')
-
-# data['discount'] = (data['rrp'] - data['price']) / data['rrp']
-# data['compete'] = (data['price'] - data['competitorPrice']) / data['price']
-
-# data.drop(['compete'], axis=1,inplace=True)
-# data.drop(['discount'], axis=1,inplace=True)
-
-# tr = data[:100000].copy()
-# te = data[100000:150000].copy()
-tr = data[data['day'] < 32].copy()
-te = data[(data['day'] >= 32) & (data['day'] < 63)].copy()
-comb = pd.concat([tr,te])
-# comb.to_csv('train_merged.csv', index=False)
-
-price_multiplier, coef, num, pids = calc_mult(tr)
-# tr = add_mult(tr, price_multiplier, pids)
-te = add_mult(te, price_multiplier, pids)
-
-mults = te['mult'].copy()
-# tr.drop(['mult'], axis=1,inplace=True)
-te.drop(['mult'], axis=1,inplace=True)
-
-
-
-#----------------- you can run from here if you need to test another model
-tr = data[data['day'] < 32].copy()
-te = data[(data['day'] >= 32) & (data['day'] < 63)].copy()
-comb = pd.concat([tr,te])
-
-
-availability_dummies  = pd.get_dummies(comb['availability'])
-comb = pd.concat([comb, availability_dummies], axis=1)
-comb.drop(['availability'], axis=1,inplace=True)
-
-
-pharmForm_dummies  = pd.get_dummies(comb['pharmForm'])
-# pharmForm_dummies.drop(['S'], axis=1, inplace=True)
-comb = pd.concat([comb, pharmForm_dummies], axis=1)
-comb.drop(['pharmForm'], axis=1,inplace=True)
-
-
-manufacturer_dummies  = pd.get_dummies(comb['manufacturer'])
-comb = pd.concat([comb, manufacturer_dummies], axis=1)
-comb.drop(['manufacturer'], axis=1,inplace=True)
-
-group_dummies  = pd.get_dummies(comb['group'])
-comb = pd.concat([comb, group_dummies], axis=1)
-comb.drop(['group'], axis=1,inplace=True)
-
-# content_dummies  = pd.get_dummies(comb['content'])
-# comb = pd.concat([comb, content_dummies], axis=1)
-# comb.drop(['content'], axis=1,inplace=True)
-
-# unit_dummies  = pd.get_dummies(comb['unit'])
-# comb = pd.concat([comb, unit_dummies], axis=1)
-# comb.drop(['unit'], axis=1,inplace=True)
-
-salesIndex_dummies  = pd.get_dummies(comb['salesIndex'])
-comb = pd.concat([comb, salesIndex_dummies], axis=1)
-comb.drop(['salesIndex'], axis=1,inplace=True)
-
-category_dummies  = pd.get_dummies(comb['category'])
-comb = pd.concat([comb, category_dummies], axis=1)
-comb.drop(['category'], axis=1,inplace=True)
-
-campaignIndex_dummies  = pd.get_dummies(comb['campaignIndex'])
-comb = pd.concat([comb, campaignIndex_dummies], axis=1)
-comb.drop(['campaignIndex'], axis=1,inplace=True)
-
-# pid_dummies  = pd.get_dummies(comb['pid'])
-# comb = pd.concat([comb, pid_dummies], axis=1)
-comb.drop(['pid'], axis=1,inplace=True)
-
-weekDay_dummies  = pd.get_dummies(comb['weekDay'])
-comb = pd.concat([comb, weekDay_dummies], axis=1)
-comb.drop(['weekDay'], axis=1,inplace=True)
-# comb.drop(['weekDay'], axis=1,inplace=True)
-
-# tr = comb[0:100000].copy()
-# te = comb[100000:150000].copy()
-tr = comb[comb['day'] < 32].copy()
-te = comb[(comb['day'] >= 32) & (comb['day'] < 63)].copy()
-
-# tr.loc[tr['click'] == 1, 'order'] = 0
-# tr.loc[tr['order'] == 1, 'order'] = 2
-# tr.loc[tr['basket'] == 1, 'order'] = 1
-# te.loc[te['click'] == 1, 'order'] = 0
-# te.loc[te['order'] == 1, 'order'] = 2
-# te.loc[te['basket'] == 1, 'order'] = 1
-# tr.drop(['pid'], axis=1,inplace=True)
-# te.drop(['pid'], axis=1,inplace=True)
-tr.drop(['lineID'], axis=1,inplace=True)
-te.drop(['lineID'], axis=1,inplace=True)
-tr.drop(['click'], axis=1,inplace=True)
-te.drop(['click'], axis=1,inplace=True)
-tr.drop(['basket'], axis=1,inplace=True)
-te.drop(['basket'], axis=1,inplace=True)
-tr.drop(['revenue'], axis=1,inplace=True)
-te.drop(['revenue'], axis=1,inplace=True)
-
-# tr['competitorPrice'] = tr['price'] - tr['competitorPrice']
-# te['competitorPrice'] = te['price'] - te['competitorPrice']
-
-# tr = tr.drop('unit', 1)
-# te = te.drop('unit', 1)
-
-# svd = TruncatedSVD(n_components=100)
-# pca = PCA(n_components=100)
-# lsa = make_pipeline(svd, Normalizer(copy=False))
-lsa = make_pipeline(Normalizer(copy=False))
-
-# model = KNeighborsClassifier(10)
-# model = DecisionTreeClassifier(max_depth=5)
-# model = MLPClassifier(alpha=0.1)
-# model = RandomForestClassifier(max_depth=10, n_estimators=1000, max_features=10)
-# model = GaussianNB()
-# model = linear_model.LogisticRegression()
-# model = svm.SVC(kernel='sigmoid', gamma=5,C=1)
-
-DNN = True
-if DNN:
-    model = Sequential()
-    model.add(Dense(2000, input_dim=tr.shape[1]-1, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(500, input_dim=500, kernel_initializer='normal', activation='relu'))
-    # model.add(Dense(500, input_dim=500, kernel_initializer='normal', activation='relu'))
-    model.add(Dense(1, kernel_initializer='normal', activation='sigmoid'))
-    # Compile model
-    model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
-
-
-X = tr.ix[:, tr.columns != 'order']
-X = lsa.fit_transform(X)
-y = tr['order']
-t1 = time.time()
-if DNN:
-    model.fit(X, y, batch_size=32, epochs=10) 
-    # model.save('NN')
-else:
-    model.fit(X, y)
-
-
-X_te = te.ix[:, te.columns != 'order']
-X_te = lsa.transform(X_te)
-y_te = te['order']
-t3 = time.time()
-
-if DNN:
-    y_pred = model.predict_classes(X_te)
-    y_pred = y_pred[:,-1]
-else:
-    y_pred = model.predict(X_te)
-
-y_prob = model.predict_proba(X_te)
-y_prob = y_prob[:,-1]
-
-
-show_results(y_te, y_pred, y_prob, comb, mults)
-
-xx = y_pred - y_te
-accuracy = xx[xx==0].shape[0]/float(xx.shape[0])
-model.save('model_' + str(accuracy))
-
-
+    print('test')
+    test_pred = gbm.predict(xgb.DMatrix(val_data))
+    test_pred = pd.Series(test_pred)
+    test_pred[test_pred < 0] = 0
+    print(test_pred.describe())
+    test_pred = test_pred.values * val_df['price'].values * val_df['order'].values
+    print(mean_squared_error(val_df['revenue'], test_pred))
