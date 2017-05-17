@@ -42,6 +42,7 @@ def split_train_val_test(data):
 
 
 def data_target(data, target_name):
+    data = data.astype('float32')
     target = data[target_name]
     data = data.drop(target_name, axis=1)
     return data, target
